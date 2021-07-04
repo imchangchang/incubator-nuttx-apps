@@ -1,0 +1,16 @@
+#
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+menu "Protocol"
+
+config PROTOCOLS_ENABLE
+	bool "Protocols library enable"
+	default n
+
+if PROTOCOLS_ENABLE
+
+endif # PROTOCOLS_ENABLE
+endmenu # PROTOCOLS library
