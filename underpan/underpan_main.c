@@ -4,6 +4,8 @@
 #include "mavlink/underpan/mavlink.h"
 #include <string.h>
 #include <poll.h>
+#include <errno.h>
+#include <sys/boardctl.h>
 
 mavlink_system_t mavlink_system =
 {
@@ -24,15 +26,16 @@ static mavlink_underpan_control_t g_control_cmd;
 
 static void pub_motor_status(void)
 {
-    mavlink_underpan_status_t status;
-    float spd[4];
+    mavlink_underpan_status_t status = {0};
+    float spd[4] = {0};
 
     for (int i = 0; i < 4; i++)
     {
-        uint8_t read_buf[5];
-        uint8_t locked;
+        uint8_t read_buf[5] = {0};
+        uint8_t locked = 0;
 
-        read(fd_motor, read_buf, 5);
+        read(fd_motor[i], read_buf, 5);
+
         memcpy(&spd[i], read_buf, sizeof(spd[i]));
         locked = read_buf[4];
         status.under_status |= locked;
@@ -41,6 +44,8 @@ static void pub_motor_status(void)
     status.speed2 = spd[1];
     status.speed3 = spd[2];
     status.speed4 = spd[3];
+    printf("send:%d %d %d %d\n", status.speed1, status.speed2, status.speed3, status.speed4);
+    // printf("send:%.1f %.1f %.1f %.1f %d\n", spd[0], spd[1],spd[2], spd[3], status.under_status);
 
     mavlink_message_t msg = {0};
     mavlink_msg_underpan_status_encode(mavlink_system.sysid, mavlink_system.compid, &msg, (const mavlink_underpan_status_t *)&status);
@@ -121,9 +126,11 @@ static int motor_task(int argc, char * argv[])
         char dev[20] = {0};
         snprintf(dev, 20, "/dev/motor%d", i);
         fd_motor[i] = open(dev, O_RDWR);
+        printf("Open motor:%s %d ->%d\n", dev, errno, fd_motor[i]);
 
         ioctl(fd_motor[i], MOTOR_STOP, NULL);
     }
+
 
     while (1)
     {
@@ -142,6 +149,7 @@ static int motor_task(int argc, char * argv[])
 
 int main(int argc, char * argv[])
 {
+    boardctl(BOARDIOC_INIT, 0);
     task_create("MotorTask", 120,4096, motor_task, NULL);
     return 0;
 }
